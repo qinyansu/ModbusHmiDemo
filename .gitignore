@@ -1,0 +1,9 @@
+bin/
+obj/
+*.user
+.vs/
+AppData/
+*.db
+*.db-wal
+*.db-shm
+selftest.txt
