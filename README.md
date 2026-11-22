@@ -1,4 +1,4 @@
-# Modbus 上位机 Demo（C# / WinForms）
+﻿# Modbus 上位机 Demo（C# / WinForms）
 
 一个可以直接运行的**工业设备监控上位机**示例：通过 **Modbus TCP / RTU** 采集设备寄存器，实时刷新点位表与趋势曲线，超限报警，数据落库 SQLite，支持 CSV 导出。
 **内置 Modbus TCP 从站模拟器，没有 PLC 也能完整跑通。**
@@ -20,7 +20,7 @@
 环境：Windows 10/11 + [.NET 9 SDK](https://dotnet.microsoft.com/download/dotnet/9.0)
 
 ```powershell
-git clone https://github.com/<你的用户名>/ModbusHmiDemo.git
+git clone https://github.com/qinyansu/ModbusHmiDemo.git
 cd ModbusHmiDemo
 dotnet run -c Release
 ```
