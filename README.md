@@ -14,6 +14,8 @@
 - **数据存储**：SQLite（WAL 模式），一次采集写入同一事务；支持历史查询与 CSV 导出
 - **界面**：点位表实时刷新、GDI+ 自绘趋势曲线、超限行高亮、状态栏显示采集耗时与记录数
 - **无界面自检**：`--selftest` 验证协议收发与存储，不弹窗
+- **防误操作**：连接期间“停止模拟器”按钮自动禁用，避免采集中途设备消失
+- **异常兜底**：未捕获异常写入 `AppData/crash.log` 并弹窗提示，不会无提示退出
 
 ## 快速开始
 
@@ -27,6 +29,8 @@ dotnet run -c Release
 
 操作顺序：点 **启动模拟器** → 点 **连接** → 表格每秒刷新、下方开始画曲线。
 
+> 连接期间“停止模拟器”会被禁用：要停设备，先点 **断开**。这样能避免采集到一半设备消失导致的一屏报错。
+
 一键演示（自动开模拟器 + 自动连接）：
 
 ```powershell
@@ -39,6 +43,38 @@ dotnet run -c Release
 .\bin\Release\net9.0-windows\ModbusHmiDemo.exe --selftest
 type .\bin\Release\net9.0-windows\selftest.txt
 ```
+
+## 数据存在哪
+
+跑起来后，数据写在 **exe 同目录的 AppData** 下（不是源码目录）：
+
+```
+bin/Release/net9.0-windows/AppData/hmi.db      ← 主库
+bin/Release/net9.0-windows/AppData/hmi.db-wal  ← 预写日志（运行中）
+bin/Release/net9.0-windows/AppData/hmi.db-shm  ← 共享内存索引（运行中）
+```
+
+- 用的是 **WAL 模式**：新数据先写 `-wal`，正常退出时才合并回 `hmi.db`；
+- 备份要三个文件一起拷，或先关程序；
+- 每次运行都是**追加**，不会覆盖。6 点位 × 1 Hz ≈ 每小时 2.16 万行，暂时没有自动清理（见路线图）。
+
+用 [DB Browser for SQLite](https://sqlitebrowser.org/) 打开 `hmi.db` 即可浏览。
+
+## 出问题先看这里
+
+程序不会“无声消失”：任何未捕获异常都会弹窗，并写日志到
+
+```
+bin/Release/net9.0-windows/AppData/crash.log
+```
+
+常见提示：
+
+| 提示 | 原因 |
+|---|---|
+| 连接失败：连接超时 | 没点“启动模拟器”，或端口被占用 |
+| 通信异常：设备已断开 | 对端连接被关闭（例如停止过模拟器） |
+| 启动失败：端口被占用 | 已有另一个实例占着 15020 |
 
 ## 项目结构
 
@@ -97,6 +133,7 @@ type .\bin\Release\net9.0-windows\selftest.txt
 - [ ] 点表改为 JSON 配置，界面可增删点位
 - [ ] 写值控制（功能码 06）与二次确认
 - [ ] NLog 日志与断线自动重连
+- [ ] 历史数据自动归档（按天数或体积清理）
 
 ## 许可
 
