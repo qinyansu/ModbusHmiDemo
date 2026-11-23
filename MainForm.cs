@@ -217,9 +217,10 @@ public sealed class MainForm : Form
         if (_client == null || _busy) return;
         _busy = true;
         var sw = Stopwatch.StartNew();
+        var client = _client;                 // 快照：避免 await 期间被"断开"置 null
         try
         {
-            var regs = await Task.Run(() => _client.ReadHolding(1, 0, (ushort)DevicePoints.All.Length));
+            var regs = await Task.Run(() => client.ReadHolding(1, 0, (ushort)DevicePoints.All.Length));
             var batch = new List<(string, double, string)>();
 
             for (int i = 0; i < DevicePoints.All.Length; i++)
@@ -235,18 +236,33 @@ public sealed class MainForm : Form
                 if (p.Name == "冷库温度") _trend.Push(v);
             }
 
-            _store.InsertMany(batch);
-            _lblState.Text = $"已连接 · {_client.Name}";
+            try { _store.InsertMany(batch); }
+            catch (Exception dbEx) { _lblStat.Text = "写库失败：" + dbEx.Message; }
+
+            _lblState.Text = $"已连接 · {client.Name}";
             _lblState.ForeColor = Color.Green;
             _lblStat.Text = $"采集耗时 {sw.ElapsedMilliseconds} ms　|　记录数 {_store.Count()}　|　质量 Good";
         }
         catch (Exception ex)
         {
-            _store.InsertMany(new[] { ("通信状态", 0.0, "Bad") });
-            _lblState.Text = "通信异常：" + ex.Message;
-            _lblState.ForeColor = Color.Firebrick;
-            _lblStat.Text = $"采集失败 {sw.ElapsedMilliseconds} ms　|　{ex.Message}";
-            SetQuality("--", Color.Gainsboro, "Bad");
+            // 这一段以前在 catch 里裸奔：写库再失败就会炸出 async void，程序弹出异常框并卡住
+            try
+            {
+                _store.InsertMany(new[] { ("通信状态", 0.0, "Bad") });
+            }
+            catch { }
+
+            try
+            {
+                string friendly = ex is System.IO.IOException
+                    ? "设备已断开（连接被对端关闭），请重新点连接"
+                    : ex.Message;
+                _lblState.Text = "通信异常：" + friendly;
+                _lblState.ForeColor = Color.Firebrick;
+                _lblStat.Text = $"采集失败 {sw.ElapsedMilliseconds} ms　|　请检查设备或模拟器";
+                SetQuality("--", Color.Gainsboro, "Bad");
+            }
+            catch { }
         }
         finally
         {
@@ -256,6 +272,13 @@ public sealed class MainForm : Form
 
     private void InitializeComponent()
     {
+        SuspendLayout();
+        // 
+        // MainForm
+        // 
+        ClientSize = new Size(284, 261);
+        Name = "MainForm";
+        ResumeLayout(false);
 
     }
 
