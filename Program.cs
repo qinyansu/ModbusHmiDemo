@@ -11,8 +11,45 @@ internal static class Program
             return;
         }
 
-        ApplicationConfiguration.Initialize();
-        Application.Run(new MainForm(args.Contains("--demo")));
+        // 任何未捕获异常都写日志 + 弹窗，避免"闪退"后无从排查
+        Application.SetUnhandledExceptionMode(UnhandledExceptionMode.CatchException);
+        Application.ThreadException += (_, e) => CrashLog.Write(e.Exception);
+        AppDomain.CurrentDomain.UnhandledException += (_, e) => CrashLog.Write(e.ExceptionObject as Exception);
+
+        try
+        {
+            ApplicationConfiguration.Initialize();
+            Application.Run(new MainForm(args.Contains("--demo")));
+        }
+        catch (Exception ex)
+        {
+            CrashLog.Write(ex);
+        }
+    }
+}
+
+internal static class CrashLog
+{
+    public static void Write(Exception ex)
+    {
+        try
+        {
+            var dir = Path.Combine(AppContext.BaseDirectory, "AppData");
+            Directory.CreateDirectory(dir);
+            var file = Path.Combine(dir, "crash.log");
+            File.AppendAllText(file,
+                $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] {ex?.GetType().FullName}: {ex?.Message}{Environment.NewLine}" +
+                $"{ex?.StackTrace}{Environment.NewLine}{new string('-', 60)}{Environment.NewLine}");
+
+            MessageBox.Show(
+                "程序遇到错误：" + Environment.NewLine + ex?.Message + Environment.NewLine + Environment.NewLine +
+                "详细信息已写入：\n" + file,
+                "出错了", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
+        catch
+        {
+            // 连日志都写不了就只能放弃了
+        }
     }
 }
 
