@@ -146,6 +146,7 @@ public sealed class MainForm : Form
             _timer.Start();
             _btnConnect.Enabled = false;
             _btnDisconnect.Enabled = true;
+            _btnSim.Enabled = false;          // 已连接时禁止停机，避免采集中途断线
             _lblState.Text = "连接中…";
             _lblState.ForeColor = Color.Green;
         }
@@ -154,6 +155,7 @@ public sealed class MainForm : Form
             MessageBox.Show(this, "连接失败：" + ex.Message, "错误", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             _client?.Dispose();
             _client = null;
+            _btnSim.Enabled = true;
         }
     }
 
@@ -164,6 +166,7 @@ public sealed class MainForm : Form
         _client = null;
         _btnConnect.Enabled = true;
         _btnDisconnect.Enabled = false;
+        _btnSim.Enabled = true;               // 未连接时才允许启停模拟器
         _lblState.Text = "已断开";
         _lblState.ForeColor = Color.DimGray;
         SetQuality("--", Color.Black, "");
