@@ -12,6 +12,7 @@ public sealed class SlaveSimulator : IDisposable
     private readonly TcpListener _listener;
     private readonly ushort[] _regs = new ushort[6];
     private readonly System.Threading.Timer _ticker;
+    private readonly List<TcpClient> _clients = new();
     private int _tick;
 
     public int Port { get; }
@@ -42,6 +43,7 @@ public sealed class SlaveSimulator : IDisposable
     {
         if (Running) return;
         Tick();                     // 先算一次，避免刚启动读到全 0
+        try { _ticker.Change(1000, 1000); } catch (ObjectDisposedException) { }
         _listener.Start();
         Running = true;
         _ = Task.Run(AcceptLoop);
@@ -54,6 +56,7 @@ public sealed class SlaveSimulator : IDisposable
             TcpClient client;
             try { client = await _listener.AcceptTcpClientAsync(); }
             catch { return; }
+            lock (_clients) _clients.Add(client);
             _ = Task.Run(() => Serve(client));
         }
     }
@@ -168,6 +171,17 @@ public sealed class SlaveSimulator : IDisposable
     {
         Running = false;
         try { _listener.Stop(); } catch { }
+        try { _ticker.Change(Timeout.Infinite, Timeout.Infinite); } catch (ObjectDisposedException) { }
+
+        // 关键：停止监听不会自动断开已建立的连接，必须主动关掉
+        lock (_clients)
+        {
+            foreach (var c in _clients)
+            {
+                try { c.Close(); } catch { }
+            }
+            _clients.Clear();
+        }
     }
 
     public void Dispose()
